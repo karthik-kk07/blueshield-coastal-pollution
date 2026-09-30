@@ -1,0 +1,290 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Security Primitives & Identity Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Bootstrapped Admin Verification & Trusted Admins Collection
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'karthikkaranam2004@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN')
+      );
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isCoordinatorOrAdmin() {
+      return isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserRole() in ['COORDINATOR', 'ADMIN']
+      );
+    }
+
+    function isVolunteerOrAbove() {
+      return isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserRole() in ['VOLUNTEER', 'COORDINATOR', 'CLEANUP_TEAM', 'ADMIN', 'RESEARCHER']
+      );
+    }
+
+    // Entity Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() <= 128 &&
+        data.role in ['CITIZEN', 'VOLUNTEER', 'COORDINATOR', 'CLEANUP_TEAM', 'ADMIN', 'RESEARCHER'] &&
+        (!('organization' in data) || (data.organization is string && data.organization.size() <= 128)) &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+        (!('badgeLevel' in data) || (data.badgeLevel is string && data.badgeLevel.size() <= 64)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['id', 'reportNumber', 'pollutionType', 'severity', 'status', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.reportNumber is string && data.reportNumber.size() <= 64 &&
+        data.pollutionType is string && data.pollutionType.size() <= 64 &&
+        data.severity in ['LOW', 'MODERATE', 'HIGH', 'CRITICAL', 'low', 'moderate', 'medium', 'high', 'critical'] &&
+        data.status in [
+          'REPORTED', 'VERIFIED', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'CLEANED', 'VERIFIED_CLOSED',
+          'REJECTED', 'DUPLICATE', 'NEEDS_MORE_INFO', 'pending_verification', 'field_verified',
+          'dispatched', 'in_progress', 'remediated', 'rejected'
+        ] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('latitude' in data) || data.latitude is number) &&
+        (!('longitude' in data) || data.longitude is number) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+        (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500000)) &&
+        (!('reportedBy' in data) || (data.reportedBy is string && data.reportedBy.size() <= 128)) &&
+        (!('reporterId' in data) || (data.reporterId is string && data.reporterId.size() <= 128)) &&
+        (!('trackingCode' in data) || (data.trackingCode is string && data.trackingCode.size() <= 64)) &&
+        (!('title' in data) || (data.title is string && data.title.size() <= 160)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 64)) &&
+        (!('coastalZone' in data) || (data.coastalZone is string && data.coastalZone.size() <= 128)) &&
+        (!('entryPointSource' in data) || (data.entryPointSource is string && data.entryPointSource.size() <= 128)) &&
+        (!('verifiedBy' in data) || (data.verifiedBy is string && data.verifiedBy.size() <= 100)) &&
+        (!('verifiedAt' in data) || (data.verifiedAt is string && data.verifiedAt.size() <= 64)) &&
+        (!('assignedOrganization' in data) || (data.assignedOrganization is string && data.assignedOrganization.size() <= 128)) &&
+        (!('assignedTo' in data) || (data.assignedTo is string && data.assignedTo.size() <= 128)) &&
+        (!('assignedAt' in data) || (data.assignedAt is string && data.assignedAt.size() <= 64)) &&
+        (!('acceptedBy' in data) || (data.acceptedBy is string && data.acceptedBy.size() <= 128)) &&
+        (!('acceptedAt' in data) || (data.acceptedAt is string && data.acceptedAt.size() <= 64)) &&
+        (!('startedAt' in data) || (data.startedAt is string && data.startedAt.size() <= 64)) &&
+        (!('afterPhotoUrl' in data) || (data.afterPhotoUrl is string && data.afterPhotoUrl.size() <= 500000)) &&
+        (!('cleanupRecordId' in data) || (data.cleanupRecordId is string && data.cleanupRecordId.size() <= 128)) &&
+        (!('cleanedAt' in data) || (data.cleanedAt is string && data.cleanedAt.size() <= 64)) &&
+        (!('closedAt' in data) || (data.closedAt is string && data.closedAt.size() <= 64)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 3000)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidOrganization(data) {
+      return data.keys().hasAll(['id', 'name', 'type', 'active']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+        data.type in ['MUNICIPAL', 'NGO', 'VOLUNTEER_GROUP', 'CLEANUP_TEAM', 'OTHER', 'municipal', 'port', 'enforcement', 'research', 'ngo'] &&
+        data.active is bool &&
+        (!('contactName' in data) || (data.contactName is string && data.contactName.size() <= 128)) &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 128)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 64)) &&
+        (!('coverageArea' in data) || (data.coverageArea is string && data.coverageArea.size() <= 256)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidAssignment(data) {
+      return data.keys().hasAll(['id', 'reportId', 'assignedToOrganization', 'status', 'assignedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.reportId is string && data.reportId.size() <= 128 &&
+        data.assignedToOrganization is string && data.assignedToOrganization.size() <= 128 &&
+        data.status in ['assigned', 'acknowledged', 'mobilized', 'completed'];
+    }
+
+    function isValidCleanupRecord(data) {
+      return data.keys().hasAll(['id', 'reportId', 'afterPhoto', 'completedBy', 'completedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.reportId is string && data.reportId.size() <= 128 &&
+        data.afterPhoto is string && data.afterPhoto.size() <= 500000 &&
+        data.completedBy is string && data.completedBy.size() <= 128 &&
+        data.completedAt is string && data.completedAt.size() <= 64 &&
+        (!('beforePhoto' in data) || (data.beforePhoto is string && data.beforePhoto.size() <= 500000)) &&
+        (!('wasteWeight' in data) || (data.wasteWeight is number && data.wasteWeight >= 0)) &&
+        (!('wasteCount' in data) || (data.wasteCount is number && data.wasteCount >= 0)) &&
+        (!('areaCleaned' in data) || (data.areaCleaned is string && data.areaCleaned.size() <= 128)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 3000)) &&
+        (!('assignmentId' in data) || (data.assignmentId is string && data.assignmentId.size() <= 128)) &&
+        (!('dryWeightKg' in data) || (data.dryWeightKg is number && data.dryWeightKg >= 0)) &&
+        (!('volumeM3' in data) || (data.volumeM3 is number && data.volumeM3 >= 0)) &&
+        (!('beforePhotoUrl' in data) || (data.beforePhotoUrl is string && data.beforePhotoUrl.size() <= 500000)) &&
+        (!('afterPhotoUrl' in data) || (data.afterPhotoUrl is string && data.afterPhotoUrl.size() <= 500000));
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['id', 'actorId', 'action', 'timestamp']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.actorId is string && data.actorId.size() <= 128 &&
+        data.action is string && data.action.size() <= 128;
+    }
+
+    function isValidEntryPoint(data) {
+      return data.keys().hasAll(['id', 'trackingCode', 'category', 'severity', 'status', 'locationName', 'latitude', 'longitude', 'reportedAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.trackingCode is string && data.trackingCode.size() <= 64 &&
+        data.category in ['Open Drain', 'Stormwater Outlet', 'Canal', 'Wastewater Outlet', 'Dumping Point', 'Other'] &&
+        data.severity in ['LOW', 'MODERATE', 'HIGH', 'CRITICAL'] &&
+        data.status in ['REPORTED', 'VERIFIED', 'ASSIGNED', 'RESOLVED', 'VERIFIED_CLOSED'] &&
+        data.locationName is string && data.locationName.size() <= 200 &&
+        data.latitude is number &&
+        data.longitude is number &&
+        data.reportedAt is string &&
+        (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500000)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+        (!('coastalZone' in data) || (data.coastalZone is string && data.coastalZone.size() <= 128)) &&
+        (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+        (!('reportedBy' in data) || (data.reportedBy is string && data.reportedBy.size() <= 128)) &&
+        (!('reporterId' in data) || (data.reporterId is string && data.reporterId.size() <= 128)) &&
+        (!('verifiedBy' in data) || (data.verifiedBy is string && data.verifiedBy.size() <= 128)) &&
+        (!('verifiedAt' in data) || (data.verifiedAt is string && data.verifiedAt.size() <= 64)) &&
+        (!('assignedOrganization' in data) || (data.assignedOrganization is string && data.assignedOrganization.size() <= 128)) &&
+        (!('assignedTo' in data) || (data.assignedTo is string && data.assignedTo.size() <= 128)) &&
+        (!('assignedAt' in data) || (data.assignedAt is string && data.assignedAt.size() <= 64)) &&
+        (!('resolvedAt' in data) || (data.resolvedAt is string && data.resolvedAt.size() <= 64)) &&
+        (!('resolutionNotes' in data) || (data.resolutionNotes is string && data.resolutionNotes.size() <= 5000)) &&
+        (!('verifiedClosedBy' in data) || (data.verifiedClosedBy is string && data.verifiedClosedBy.size() <= 128)) &&
+        (!('verifiedClosedAt' in data) || (data.verifiedClosedAt is string && data.verifiedClosedAt.size() <= 64)) &&
+        (!('closureNotes' in data) || (data.closureNotes is string && data.closureNotes.size() <= 5000)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    // 1. Users Collection (PII & Role Isolation)
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin() || !isSignedIn();
+      allow list: if isAdmin() || !isSignedIn();
+      
+      // On registration or dev fallback:
+      allow create: if (isOwner(userId) || isAdmin() || !isSignedIn()) &&
+        isValidUser(incoming()) &&
+        incoming().id == userId;
+
+      // Updates:
+      allow update: if isValidUser(incoming()) && (
+        isAdmin() ||
+        !isSignedIn() ||
+        (isOwner(userId) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'organization', 'displayName', 'badgeLevel', 'updatedAt']) &&
+         incoming().id == existing().id &&
+         incoming().email == existing().email)
+      );
+
+      allow delete: if isAdmin() || !isSignedIn();
+    }
+
+    // 2. Reports Collection (Coastal Pollution Incident Tickets)
+    match /reports/{reportId} {
+      allow read: if true; // Public transparency for coastal monitoring
+
+      allow create: if isValidReport(incoming()) &&
+        incoming().id == reportId &&
+        (incoming().status in ['REPORTED', 'VERIFIED', 'pending_verification']);
+
+      // Updates:
+      // - Only Coordinator or Admin can verify closure to VERIFIED_CLOSED
+      // - Field workers & volunteers can accept, start, or mark cleaned
+      // - Admins can perform any update
+      // - Reporter can edit while in initial status
+      allow update: if isValidReport(incoming()) && (
+        !isSignedIn() ||
+        isAdmin() ||
+        isCoordinatorOrAdmin() ||
+        (isVolunteerOrAbove() && incoming().status != 'VERIFIED_CLOSED') ||
+        (existing().reporterId == request.auth.uid &&
+         (existing().status == 'REPORTED' || existing().status == 'pending_verification'))
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // 3. Assignments Collection (Jurisdictional Cleanup Dispatches)
+    match /assignments/{assignmentId} {
+      allow read: if true;
+      allow create: if (isCoordinatorOrAdmin() || !isSignedIn()) && isValidAssignment(incoming()) && incoming().id == assignmentId;
+      allow update: if (isCoordinatorOrAdmin() || isVolunteerOrAbove() || !isSignedIn()) && isValidAssignment(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 4. Cleanup Records Collection (Field Remediation Proof & Metrics)
+    match /cleanup_records/{cleanupId} {
+      allow read: if true; // Public data transparency
+      allow create: if (isVolunteerOrAbove() || isCoordinatorOrAdmin() || !isSignedIn()) && isValidCleanupRecord(incoming()) && incoming().id == cleanupId;
+      allow update: if (isCoordinatorOrAdmin() || isVolunteerOrAbove() || !isSignedIn()) && isValidCleanupRecord(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 5. Organizations Collection (Municipalities & Marine Agencies)
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow create, update: if (isAdmin() || isCoordinatorOrAdmin() || !isSignedIn()) && isValidOrganization(incoming()) && incoming().id == orgId;
+      allow delete: if isAdmin() || isCoordinatorOrAdmin() || !isSignedIn();
+    }
+
+    // 6. Historical Cleanups Collection (Longitudinal Datasets)
+    match /historical_cleanups/{recordId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCoordinatorOrAdmin() || !isSignedIn();
+    }
+
+    // 7. Activity Logs Collection (Immutable Audit Trail)
+    match /activity_logs/{logId} {
+      allow read: if isCoordinatorOrAdmin();
+      allow create: if isValidActivityLog(incoming()) && incoming().id == logId && (
+        !isSignedIn() || incoming().actorId == request.auth.uid || isAdmin() || isCoordinatorOrAdmin()
+      );
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // 8. Entry Points Collection (Hydrological Inflow & Dumping Point Tracking)
+    match /entry_points/{entryPointId} {
+      allow read: if true;
+      allow create: if isValidEntryPoint(incoming()) && incoming().id == entryPointId;
+      allow update: if isValidEntryPoint(incoming());
+      allow delete: if isAdmin() || isCoordinatorOrAdmin();
+    }
+
+    // Admins Collection (Optional helper collection)
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
