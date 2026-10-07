@@ -133,7 +133,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
         ]}
       />
 
-      {/* Cloud & Firebase Architecture Readiness */}
+      {/* Local-First Architecture Readiness */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl p-4 border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         <div>
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-teal-400 block">
@@ -160,12 +160,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Firebase Auth</span>
+              <span>Demo Role Engine</span>
             </span>
-            <Badge variant="success">CONNECTED</Badge>
+            <Badge variant="success">ACTIVE</Badge>
           </div>
           <p className="text-xs text-slate-500">
-            RBAC roles strictly isolated. Ordinary users cannot self-assign ADMIN.
+            RBAC roles strictly isolated for academic demonstration mode.
           </p>
         </Card>
 
@@ -173,12 +173,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
               <Database className="w-4 h-4 text-teal-600" />
-              <span>Cloud Firestore</span>
+              <span>Local Data Engine</span>
             </span>
-            <Badge variant="success">CONNECTED</Badge>
+            <Badge variant="success">ACTIVE (LOCAL)</Badge>
           </div>
           <p className="text-xs text-slate-500">
-            Live database: <code>ai-studio-blueshield</code> with hardened rules.
+            Storage: <code>localStorage</code> with Visakhapatnam baseline seed.
           </p>
         </Card>
 
@@ -186,12 +186,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
               <Cloud className="w-4 h-4 text-blue-600" />
-              <span>Firebase Storage</span>
+              <span>Photo Compression</span>
             </span>
-            <Badge variant="teal">CONFIGURED</Badge>
+            <Badge variant="teal">IN-BROWSER</Badge>
           </div>
           <p className="text-xs text-slate-500">
-            Bucket: <code>gen-lang-client-0627196876.firebasestorage.app</code>
+            Engine: HTML5 Canvas JPEG optimization with zero cloud cost.
           </p>
         </Card>
       </div>
@@ -293,7 +293,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onNavigate }) => {
                 </div>
               ) : (
                 <p className="text-slate-500">
-                  Registered accounts will appear here as users log in with Firebase Authentication.
+                  Registered accounts will appear here as users log in or switch roles in Demonstration Mode.
                 </p>
               )}
             </CardContent>

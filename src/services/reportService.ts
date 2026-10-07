@@ -1,25 +1,11 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  query,
-  orderBy,
-  onSnapshot,
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { localDataService, localEvents } from './localDataService';
 import { ReportDoc } from '../types/firestore';
-
-const COLLECTION_NAME = 'reports';
 
 export async function createReport(data: Partial<ReportDoc>): Promise<ReportDoc> {
   const currentYear = new Date().getFullYear();
   const randomSeq = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
   const reportNumber = data.reportNumber || `BS-${currentYear}-${randomSeq}`;
   const id = data.id || `rep-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const path = `${COLLECTION_NAME}/${id}`;
 
   const reportData: ReportDoc = {
     id,
@@ -40,25 +26,12 @@ export async function createReport(data: Partial<ReportDoc>): Promise<ReportDoc>
     entryPointSource: data.entryPointSource || 'Coastal Intertidal',
   };
 
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    await setDoc(docRef, reportData);
-    return reportData;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
-  }
+  localDataService.addReport(reportData);
+  return reportData;
 }
 
 export async function getReport(id: string): Promise<ReportDoc | null> {
-  const path = `${COLLECTION_NAME}/${id}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) return null;
-    return snap.data() as ReportDoc;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, path);
-  }
+  return localDataService.getReportById(id);
 }
 
 export async function updateReportStatus(
@@ -67,24 +40,18 @@ export async function updateReportStatus(
   verifiedBy?: string,
   notes?: string
 ): Promise<void> {
-  const path = `${COLLECTION_NAME}/${id}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const updates: Partial<ReportDoc> = {
-      status,
-      updatedAt: new Date().toISOString(),
-    };
-    if (verifiedBy) {
-      updates.verifiedBy = verifiedBy;
-      updates.verifiedAt = new Date().toISOString();
-    }
-    if (notes) {
-      updates.notes = notes;
-    }
-    await updateDoc(docRef, updates);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+  const updates: Partial<ReportDoc> = {
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (verifiedBy) {
+    updates.verifiedBy = verifiedBy;
+    updates.verifiedAt = new Date().toISOString();
   }
+  if (notes) {
+    updates.notes = notes;
+  }
+  localDataService.updateReport(id, updates);
 }
 
 export async function verifyOrUpdateReport(
@@ -97,136 +64,129 @@ export async function verifyOrUpdateReport(
     notes?: string;
   }
 ): Promise<void> {
-  const path = `${COLLECTION_NAME}/${id}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const fieldsToUpdate: Partial<ReportDoc> = {
-      status: updates.status,
-      updatedAt: new Date().toISOString(),
-    };
-    if (updates.pollutionType) {
-      fieldsToUpdate.pollutionType = updates.pollutionType;
-      fieldsToUpdate.title = `${updates.pollutionType} Pollution Hazard`;
-    }
-    if (updates.severity) {
-      fieldsToUpdate.severity = updates.severity;
-    }
-    if (updates.verifiedBy) {
-      fieldsToUpdate.verifiedBy = updates.verifiedBy;
-      fieldsToUpdate.verifiedAt = new Date().toISOString();
-    }
-    if (updates.notes) {
-      fieldsToUpdate.notes = updates.notes;
-    }
-    await updateDoc(docRef, fieldsToUpdate);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
-  }
-}
-
-export async function listReports(): Promise<ReportDoc[]> {
-  try {
-    const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => d.data() as ReportDoc);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
-    return [];
-  }
-}
-
-export function subscribeToReports(
-  onReports: (reports: ReportDoc[]) => void,
-  onError?: (err: unknown) => void
-): () => void {
-  const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const reports = snapshot.docs.map((d) => d.data() as ReportDoc);
-      onReports(reports);
-    },
-    (err) => {
-      if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME);
-    }
-  );
+  localDataService.updateReport(id, {
+    status: updates.status,
+    pollutionType: updates.pollutionType,
+    severity: updates.severity,
+    verifiedBy: updates.verifiedBy,
+    verifiedAt: new Date().toISOString(),
+    notes: updates.notes,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function assignReport(
   id: string,
-  assignment: {
-    assignedOrganization: string;
-    assignedTo: string;
-    notes?: string;
-  }
+  organizationOrPayload: string | { assignedOrganization?: string; assignedTo?: string; notes?: string },
+  assignedToName?: string,
+  notes?: string
 ): Promise<void> {
-  const path = `${COLLECTION_NAME}/${id}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const fieldsToUpdate: Partial<ReportDoc> = {
-      status: 'ASSIGNED',
-      assignedOrganization: assignment.assignedOrganization,
-      assignedTo: assignment.assignedTo,
-      assignedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    if (assignment.notes) {
-      fieldsToUpdate.notes = assignment.notes;
-    }
-    await updateDoc(docRef, fieldsToUpdate);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+  let orgName: string | undefined;
+  let assignedTo: string | undefined;
+  let finalNotes: string | undefined;
+
+  if (typeof organizationOrPayload === 'string') {
+    orgName = organizationOrPayload;
+    assignedTo = assignedToName;
+    finalNotes = notes;
+  } else if (organizationOrPayload && typeof organizationOrPayload === 'object') {
+    orgName = organizationOrPayload.assignedOrganization;
+    assignedTo = organizationOrPayload.assignedTo;
+    finalNotes = organizationOrPayload.notes;
   }
+
+  localDataService.updateReport(id, {
+    status: 'ASSIGNED',
+    assignedOrganization: orgName,
+    assignedTo,
+    assignedAt: new Date().toISOString(),
+    notes: finalNotes || undefined,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+// Subscriptions
+function createReportSubscription(
+  filterFn: (report: ReportDoc) => boolean,
+  callback: (reports: ReportDoc[]) => void
+): () => void {
+  const notify = () => {
+    const all = localDataService.getReports();
+    callback(all.filter(filterFn));
+  };
+
+  // Immediate emission
+  notify();
+
+  const handler = () => notify();
+  localEvents.addEventListener('reports_updated', handler);
+  return () => {
+    localEvents.removeEventListener('reports_updated', handler);
+  };
+}
+
+export function subscribeToReports(
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  return createReportSubscription(() => true, callback);
 }
 
 export function subscribeToReportedReports(
-  onReports: (reports: ReportDoc[]) => void,
-  onError?: (err: unknown) => void
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
 ): () => void {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    orderBy('createdAt', 'desc')
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const allReports = snapshot.docs.map((d) => d.data() as ReportDoc);
-      // Filter for reports awaiting verification (REPORTED or legacy pending_verification)
-      const reportedOnly = allReports.filter(
-        (r) => r.status === 'REPORTED' || r.status === 'pending_verification'
-      );
-      onReports(reportedOnly);
-    },
-    (err) => {
-      if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME);
-    }
-  );
+  return createReportSubscription((r) => r.status === 'REPORTED', callback);
 }
 
 export function subscribeToVerifiedReports(
-  onReports: (reports: ReportDoc[]) => void,
-  onError?: (err: unknown) => void
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
 ): () => void {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    orderBy('createdAt', 'desc')
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const allReports = snapshot.docs.map((d) => d.data() as ReportDoc);
-      // Filter for reports that are VERIFIED (ready to assign) or ASSIGNED
-      const relevant = allReports.filter(
-        (r) => r.status === 'VERIFIED' || r.status === 'ASSIGNED' || r.status === 'field_verified' || r.status === 'dispatched'
-      );
-      onReports(relevant);
-    },
-    (err) => {
-      if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME);
-    }
-  );
+  return createReportSubscription((r) => r.status === 'VERIFIED', callback);
 }
 
+export function subscribeToAssignedReports(
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  return createReportSubscription((r) => r.status === 'ASSIGNED', callback);
+}
+
+export function subscribeToAcceptedReports(
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  return createReportSubscription((r) => r.status === 'ACCEPTED', callback);
+}
+
+export function subscribeToInProgressReports(
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  return createReportSubscription((r) => r.status === 'IN_PROGRESS', callback);
+}
+
+export function subscribeToCleanedReports(
+  callback: (reports: ReportDoc[]) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  return createReportSubscription((r) => r.status === 'CLEANED', callback);
+}
+
+export function subscribeToReport(
+  id: string,
+  callback: (report: ReportDoc | null) => void,
+  _onError?: (error: unknown) => void
+): () => void {
+  const notify = () => {
+    callback(localDataService.getReportById(id));
+  };
+  notify();
+
+  const handler = () => notify();
+  localEvents.addEventListener('reports_updated', handler);
+  return () => {
+    localEvents.removeEventListener('reports_updated', handler);
+  };
+}

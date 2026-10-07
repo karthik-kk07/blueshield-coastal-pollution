@@ -69,7 +69,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <CheckCircle2 className="w-12 h-12 text-teal-600 mx-auto" />
             <h3 className="text-base font-bold text-slate-900">Account Created Successfully</h3>
             <p className="text-xs text-slate-600">
-              Welcome, {name}! Your profile has been stored in Firebase with role <strong>{role}</strong>. Directing to your dashboard...
+              Welcome, {name}! Your profile has been stored in local session with role <strong>{role}</strong>. Directing to your dashboard...
             </p>
           </CardContent>
         ) : (
@@ -77,7 +77,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Account Registration</CardTitle>
               <CardDescription>
-                Firebase-authenticated credentials and role selection
+                Demonstration credentials and role assignment
               </CardDescription>
             </CardHeader>
 

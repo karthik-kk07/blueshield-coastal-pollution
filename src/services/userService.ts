@@ -1,85 +1,55 @@
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types/auth';
 
-const COLLECTION_NAME = 'users';
+const USERS_STORAGE_KEY = 'blueshield_local_users_v3';
 
-export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  const path = `${COLLECTION_NAME}/${userId}`;
+function getStoredUsers(): Record<string, UserProfile> {
   try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) {
-      return null;
-    }
-    const data = snap.data();
-    return {
-      id: snap.id,
-      name: data.name || '',
-      email: data.email || '',
-      role: (data.role as UserRole) || 'CITIZEN',
-      organization: data.organization || '',
-      createdAt: data.createdAt || new Date().toISOString(),
-      displayName: data.name || '',
-    };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, path);
+    const raw = localStorage.getItem(USERS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
-export async function createUserProfile(profile: UserProfile): Promise<void> {
-  const path = `${COLLECTION_NAME}/${profile.id}`;
+function saveStoredUsers(users: Record<string, UserProfile>): void {
   try {
-    const docRef = doc(db, COLLECTION_NAME, profile.id);
-    const data: Record<string, any> = {
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-      role: profile.role,
-      organization: profile.organization || '',
-      createdAt: profile.createdAt || new Date().toISOString(),
-    };
-    if (profile.displayName) data.displayName = profile.displayName;
-    if (profile.badgeLevel) data.badgeLevel = profile.badgeLevel;
-    await setDoc(docRef, data);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch (err) {
+    console.error('Failed to save users locally:', err);
   }
+}
+
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  const users = getStoredUsers();
+  return users[userId] || null;
+}
+
+export async function createUserProfile(profile: UserProfile): Promise<void> {
+  const users = getStoredUsers();
+  users[profile.id] = {
+    ...profile,
+    createdAt: profile.createdAt || new Date().toISOString(),
+  };
+  saveStoredUsers(users);
 }
 
 export async function updateUserProfile(
   userId: string,
-  updates: Partial<Pick<UserProfile, 'name' | 'organization' | 'role'>>
+  updates: Partial<Pick<UserProfile, 'name' | 'organization' | 'role' | 'badgeLevel'>>
 ): Promise<void> {
-  const path = `${COLLECTION_NAME}/${userId}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, userId);
-    await updateDoc(docRef, {
+  const users = getStoredUsers();
+  if (users[userId]) {
+    users[userId] = {
+      ...users[userId],
       ...updates,
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    };
+    saveStoredUsers(users);
   }
 }
 
-export async function listAllUsers(maxResults = 50): Promise<UserProfile[]> {
-  try {
-    const q = query(collection(db, COLLECTION_NAME), limit(maxResults));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name || '',
-        email: data.email || '',
-        role: (data.role as UserRole) || 'CITIZEN',
-        organization: data.organization || '',
-        createdAt: data.createdAt || '',
-        displayName: data.name || '',
-      };
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
-  }
+export async function listRecentUsers(limitCount = 20): Promise<UserProfile[]> {
+  const users = getStoredUsers();
+  return Object.values(users).slice(0, limitCount);
 }
+
+export const listAllUsers = listRecentUsers;

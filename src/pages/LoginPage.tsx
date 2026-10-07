@@ -102,7 +102,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           Sign In to BlueShield
         </h1>
         <p className="text-xs text-slate-500 mt-1">
-          Firebase Authentication &amp; Role-Based Access Control
+          Demonstration Mode — Role-Based Access Control
         </p>
       </div>
 
@@ -110,7 +110,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Account Credentials</CardTitle>
           <CardDescription>
-            Select a verified persona or enter your email and password
+            Select a verified persona or enter your email to proceed
           </CardDescription>
         </CardHeader>
 
@@ -125,7 +125,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
             {providerNotice && (
               <div className="p-3 bg-teal-50 border border-teal-200 rounded-md text-xs text-teal-900 leading-relaxed">
-                <span className="font-semibold block mb-0.5">Firebase Provider Configuration:</span>
+                <span className="font-semibold block mb-0.5">Demonstration Access Notice:</span>
                 {providerNotice}
               </div>
             )}
@@ -184,7 +184,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
             <div className="p-2.5 rounded bg-emerald-50/80 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Real Firebase Authentication active. Passwords secured via Firebase Auth service.</span>
+              <span>Demonstration Mode active. Sessions and roles managed locally in browser.</span>
             </div>
           </CardContent>
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AppRoute } from '../types/navigation';
 import { useIncidents } from '../context/IncidentContext';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types/auth';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -38,6 +40,7 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { reports, metrics, verifyReport } = useIncidents();
+  const { switchRole } = useAuth();
   const [searchTrackingCode, setSearchTrackingCode] = useState('');
   const [searchedReport, setSearchedReport] = useState<typeof reports[0] | null>(null);
   const [searchSearched, setSearchSearched] = useState(false);
@@ -364,6 +367,116 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           <span className="font-mono text-[11px] text-slate-400">
             Closed-Loop Protocol: GVMC · APPCB · Visakhapatnam Port Authority · ICG DHQ-6
           </span>
+        </div>
+      </section>
+
+      {/* QUICK EVALUATOR DEMO ACCESS PANEL */}
+      <section className="bg-linear-to-r from-slate-900 via-[#0B2545] to-slate-900 border border-teal-500/30 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-700/60">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                100% FREE LOCAL-FIRST MVP
+              </span>
+              <span className="text-xs text-slate-400 font-mono">Academic DTPI Demonstration</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              Enter Demonstration Mode
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Experience the complete closed-loop lifecycle without registering an account or configuring cloud credentials. Select an evaluator persona to instantly access role-gated workflows.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-6">
+          {/* Persona 1: Citizen */}
+          <div className="bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-xl p-4 transition-all flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-teal-400">ROLE 1</span>
+                <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">PUBLIC</span>
+              </div>
+              <h3 className="font-bold text-sm text-white">Citizen Observer</h3>
+              <p className="text-xs text-slate-400 mt-1">Submit geotagged pollution photos with GPS and manual placement.</p>
+            </div>
+            <button
+              onClick={() => {
+                switchRole('CITIZEN');
+                onNavigate('/report');
+              }}
+              className="mt-4 w-full py-2 px-3 text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>Launch as Citizen</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Persona 2: Coordinator */}
+          <div className="bg-slate-800/80 hover:bg-slate-800 border border-teal-500/40 rounded-xl p-4 transition-all flex flex-col justify-between ring-1 ring-teal-500/20">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-teal-300">ROLE 2</span>
+                <span className="text-[10px] bg-teal-900/60 text-teal-300 border border-teal-500/30 px-1.5 py-0.5 rounded">TRIAGE</span>
+              </div>
+              <h3 className="font-bold text-sm text-white">Coordinator</h3>
+              <p className="text-xs text-slate-400 mt-1">Review reported queue, verify evidence, check duplicates, dispatch to GVMC/VPA.</p>
+            </div>
+            <button
+              onClick={() => {
+                switchRole('COORDINATOR');
+                onNavigate('/verify');
+              }}
+              className="mt-4 w-full py-2 px-3 text-xs font-semibold bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg transition-colors flex items-center justify-center gap-1.5 font-bold"
+            >
+              <span>Launch as Coordinator</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
+            </button>
+          </div>
+
+          {/* Persona 3: Cleanup Team */}
+          <div className="bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-xl p-4 transition-all flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-amber-400">ROLE 3</span>
+                <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">FIELD CREW</span>
+              </div>
+              <h3 className="font-bold text-sm text-white">Cleanup Team</h3>
+              <p className="text-xs text-slate-400 mt-1">Accept tasks, start cleanup, upload after-photo evidence, record waste kg.</p>
+            </div>
+            <button
+              onClick={() => {
+                switchRole('CLEANUP_TEAM');
+                onNavigate('/field');
+              }}
+              className="mt-4 w-full py-2 px-3 text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>Launch as Field Crew</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Persona 4: Administrator */}
+          <div className="bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-xl p-4 transition-all flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-rose-400">ROLE 4</span>
+                <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">DIRECTOR</span>
+              </div>
+              <h3 className="font-bold text-sm text-white">Platform Director</h3>
+              <p className="text-xs text-slate-400 mt-1">Inspect operational KPIs, audit logs, hotspot clustering, and prevention rules.</p>
+            </div>
+            <button
+              onClick={() => {
+                switchRole('ADMIN');
+                onNavigate('/dashboard');
+              }}
+              className="mt-4 w-full py-2 px-3 text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>Launch as Admin</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </section>
 

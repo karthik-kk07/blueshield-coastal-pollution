@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useIncidents } from '../../context/IncidentContext';
 import { BlueShieldLogo } from '../ui/BlueShieldLogo';
+import { localDataService } from '../../services/localDataService';
 
 interface MobileNavProps {
   currentRoute: AppRoute;
@@ -223,9 +224,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentRoute, onNavigate }
 
               {/* Active Role Selector in mobile drawer */}
               <div className="pt-3 border-t border-slate-200">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2">
-                  Active Role: {role}
-                </span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Active Demo Role: {role}
+                  </span>
+                  <span className="text-[10px] font-mono bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">
+                    DEMO
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                   {(['CITIZEN', 'VOLUNTEER', 'COORDINATOR', 'CLEANUP_TEAM', 'ADMIN', 'RESEARCHER'] as UserRole[]).map((r) => (
                     <button
@@ -241,6 +247,15 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentRoute, onNavigate }
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => {
+                    localDataService.loadDemoData();
+                    setDrawerOpen(false);
+                  }}
+                  className="w-full mt-2.5 py-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded font-medium text-center"
+                >
+                  Reset Demo Data to Baseline
+                </button>
               </div>
             </div>
 

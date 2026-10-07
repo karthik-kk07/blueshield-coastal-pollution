@@ -1,43 +1,40 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  query,
-  orderBy,
-  onSnapshot,
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { AssignmentDoc } from '../types/firestore';
+import { localEvents } from './localDataService';
 
-const COLLECTION_NAME = 'assignments';
+const ASSIGNMENTS_KEY = 'blueshield_local_assignments_v3';
 
-export async function createAssignment(data: Omit<AssignmentDoc, 'id' | 'assignedAt'>): Promise<string> {
-  const id = `asg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const path = `${COLLECTION_NAME}/${id}`;
+function getLocalAssignments(): AssignmentDoc[] {
   try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const assignment: AssignmentDoc = {
-      ...data,
-      id,
-      assignedAt: new Date().toISOString(),
-    };
-    await setDoc(docRef, assignment);
-    return id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    const raw = localStorage.getItem(ASSIGNMENTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }
 
-export async function listAssignments(): Promise<AssignmentDoc[]> {
+function saveLocalAssignments(assignments: AssignmentDoc[]): void {
   try {
-    const q = query(collection(db, COLLECTION_NAME), orderBy('assignedAt', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => d.data() as AssignmentDoc);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
+    localStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(assignments));
+    localEvents.notify('assignments_updated');
+  } catch (err) {
+    console.error('Failed to save assignments:', err);
   }
+}
+
+export async function createAssignment(data: Omit<AssignmentDoc, 'id' | 'assignedAt'>): Promise<string> {
+  const id = `asg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const assignment: AssignmentDoc = {
+    ...data,
+    id,
+    assignedAt: new Date().toISOString(),
+  };
+  const list = getLocalAssignments();
+  saveLocalAssignments([assignment, ...list]);
+  return id;
+}
+
+export async function listAssignments(): Promise<AssignmentDoc[]> {
+  return getLocalAssignments();
 }
 
 export async function updateAssignmentStatus(
@@ -45,31 +42,30 @@ export async function updateAssignmentStatus(
   status: AssignmentDoc['status'],
   notes?: string
 ): Promise<void> {
-  const path = `${COLLECTION_NAME}/${id}`;
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, {
+  const list = getLocalAssignments();
+  const index = list.findIndex((a) => a.id === id);
+  if (index !== -1) {
+    list[index] = {
+      ...list[index],
       status,
       ...(notes ? { notes } : {}),
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, path);
+    };
+    saveLocalAssignments(list);
   }
 }
 
 export function subscribeToAssignments(
   onAssignments: (assignments: AssignmentDoc[]) => void,
-  onError?: (err: unknown) => void
+  _onError?: (err: unknown) => void
 ): () => void {
-  const q = query(collection(db, COLLECTION_NAME), orderBy('assignedAt', 'desc'));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      onAssignments(snapshot.docs.map((d) => d.data() as AssignmentDoc));
-    },
-    (err) => {
-      if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, COLLECTION_NAME);
-    }
-  );
+  const notify = () => {
+    onAssignments(getLocalAssignments());
+  };
+  notify();
+
+  const handler = () => notify();
+  localEvents.addEventListener('assignments_updated', handler);
+  return () => {
+    localEvents.removeEventListener('assignments_updated', handler);
+  };
 }

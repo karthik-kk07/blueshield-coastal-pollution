@@ -1,6 +1,3 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../lib/firebase';
-
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -48,9 +45,9 @@ export function validateImageFile(file: File): FileValidationResult {
 }
 
 /**
- * Compresses an image to an optimized DataURL fallback if storage bucket is unavailable
+ * Compresses an image to an optimized DataURL using HTML5 Canvas
  */
-export async function fileToDataUrl(file: File, maxWidth = 1280, quality = 0.85): Promise<string> {
+export async function fileToDataUrl(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Failed to read image file.'));
@@ -85,33 +82,19 @@ export async function fileToDataUrl(file: File, maxWidth = 1280, quality = 0.85)
 }
 
 /**
- * Uploads an image to Firebase Storage and returns the public download URL.
- * Falls back to an optimized base64 DataURL if Firebase Storage encounters bucket unavailability.
+ * Processes and optimizes an evidence photo into an in-memory / local DataURL.
+ * No external cloud storage or paid API required.
  */
-export async function uploadReportPhoto(file: File, reportNumber?: string): Promise<{ url: string; storagePath?: string }> {
+export async function uploadReportPhoto(
+  file: File,
+  reportNumber?: string
+): Promise<{ url: string; storagePath?: string }> {
   const validation = validateImageFile(file);
   if (!validation.valid) {
     throw new Error(validation.error);
   }
 
-  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-  const path = `reports/${reportNumber || 'rep'}_${Date.now()}_${cleanName}`;
-
-  try {
-    const storageRef = ref(storage, path);
-    const snapshot = await uploadBytes(storageRef, file, {
-      contentType: file.type || 'image/jpeg',
-      customMetadata: {
-        reportNumber: reportNumber || 'unknown',
-        uploadedAt: new Date().toISOString(),
-      },
-    });
-    const downloadUrl = await getDownloadURL(snapshot.ref);
-    return { url: downloadUrl, storagePath: path };
-  } catch (error) {
-    console.warn('Firebase Storage upload encounter, falling back to optimized inline asset:', error);
-    // Graceful fallback to guarantee zero user interruption
-    const dataUrl = await fileToDataUrl(file);
-    return { url: dataUrl, storagePath: 'inline-compressed' };
-  }
+  const dataUrl = await fileToDataUrl(file);
+  const path = `local-evidence/${reportNumber || 'rep'}_${Date.now()}`;
+  return { url: dataUrl, storagePath: path };
 }
